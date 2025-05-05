@@ -1,0 +1,66 @@
+import os
+import requests
+import shutil
+import pandas as pd
+import re
+
+TMDB_API_KEY = "7ade8bf5eb9b1fac6823c5b57bfa7e5a"
+POSTER_DIR = r"C:\Users\omerf\Desktop\computer_vision_project\poster_images"
+
+if not os.path.exists(POSTER_DIR):
+    os.makedirs(POSTER_DIR)
+
+new_dataset = []
+
+df = pd.read_csv("balanced_filtered_movies.csv")
+tconst_list = df["tconst"].tolist()
+titles = df["originalTitle"].tolist()  
+
+def clean_filename(filename):
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
+
+for idx, tconst in enumerate(tconst_list):
+    url = f"https://api.themoviedb.org/3/find/{tconst}?api_key={TMDB_API_KEY}&external_source=imdb_id"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        data = response.json()
+        
+        if "movie_results" in data and len(data["movie_results"]) > 0:
+            movie_data = data["movie_results"][0]
+            poster_path = movie_data.get("poster_path")
+            title = titles[idx] 
+            imdb_score = df[df["tconst"] == tconst]["averageRating"].values[0]
+            
+            if poster_path:
+                poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                
+                cleaned_title = clean_filename(title)  #
+                file_name = f"{cleaned_title}.jpg" 
+                file_path = os.path.join(POSTER_DIR, file_name)
+                
+                img_response = requests.get(poster_url, stream=True)
+                if img_response.status_code == 200:
+                    with open(file_path, 'wb') as f:
+                        shutil.copyfileobj(img_response.raw, f)
+                    print(f"Poster for {title} saved at {file_path}")
+                    
+                    new_dataset.append([f"poster_images/{file_name}", imdb_score, True])
+                else:
+                    print(f"Failed to download poster for {title}. Status code: {img_response.status_code}")
+                    new_dataset.append([None, imdb_score, False])
+            else:
+                print(f"No poster available for {title}")
+                new_dataset.append([None, imdb_score, False])
+        else:
+            print(f"No movie results found for {tconst}")
+            new_dataset.append([None, None, False])
+    else:
+        print(f"Failed to fetch data for {tconst}. Status code: {response.status_code}")
+        new_dataset.append([None, None, False])
+
+# Yeni dataset'i CSV'ye kaydet
+new_df = pd.DataFrame(new_dataset, columns=["image_path", "imdb_score", "file_exists"])
+new_df.to_csv("poster_image_scores.csv", index=False)
+
+print("CSV file with new movie data has been saved.")
