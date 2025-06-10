@@ -1,0 +1,4 @@
+THIS IS THE LINK TO THE DATASET CREATED AFTER EXTRACTING BERT EMBEDDINGS OF ALL MOVIES' TITLES:
+
+https://www.kaggle.com/datasets/tesnimejemmazi/embeddings_1
+
